@@ -20,7 +20,6 @@ if (cluster.isMaster) {
   let activeWorkers = 0;
 
   for (let i = 0; i < workerClusterSize; i++) {
-    // Pass instance index and a random seed to each worker process
     const seed = Math.floor(Math.random() * 100000);
     cluster.fork({ RUNTIME_INSTANCE_ID: i, SEED_VALUE: seed });
     activeWorkers++;
@@ -48,7 +47,6 @@ if (cluster.isMaster) {
   const workerIndex = parseInt(process.env.RUNTIME_INSTANCE_ID);
   const workerSeed = parseInt(process.env.SEED_VALUE);
 
-  // Simple LCG pseudo-random generator to ensure reproducible randomness per worker
   function seededRandom(seed) {
     let currentSeed = seed;
     return function() {
@@ -65,7 +63,6 @@ if (cluster.isMaster) {
       this.driverPhone = `+21355500000${workerIndex}`;
       this.riderPhone = `+21366600000${workerIndex}`;
       
-      // Seed Algiers central coordinate displacement based on worker index
       const baseLat = 36.7538;
       const baseLng = 3.0588;
       this.coords = { 
@@ -73,7 +70,6 @@ if (cluster.isMaster) {
         lng: baseLng + (rollDice() - 0.5) * 0.03 
       };
 
-      // Driver 3 initializes with high debt to verify locks. Others start low.
       this.cashDebt = workerIndex === 3 ? 6200.00 : 150.00;
       this.activeTripUuid = null;
       
@@ -92,7 +88,6 @@ if (cluster.isMaster) {
       });
 
       this.socket.on('job_assignment_broadcast', (ridePayload) => {
-        // Enforce 6k invariant check
         if (this.cashDebt >= 6000.00) {
           process.send({
             type: 'STRUCTURAL_INCOHERENCE_IDENTIFIED',
@@ -106,7 +101,6 @@ if (cluster.isMaster) {
 
         this.activeTripUuid = ridePayload.tripUuid;
         
-        // Randomly roll a scenario using the seeded random generator
         const roll = rollDice();
         let scenarioName = "NORMAL_DELIVERY";
         if (roll < 0.15) {
@@ -122,7 +116,6 @@ if (cluster.isMaster) {
           logPayload: `Driver ${this.driverPhone} matched. Trip: ${ridePayload.tripUuid}. Seed roll: ${roll.toFixed(3)} -> Event: ${scenarioName}`
         });
 
-        // Set status to active transit
         this.socket.emit('update_driver_telemetry', {
           driverPhone: this.driverPhone,
           coords: { lat: ridePayload.pickupLat, lng: ridePayload.pickupLng },
@@ -130,7 +123,6 @@ if (cluster.isMaster) {
           status: "TRANSIT_ACTIVE"
         });
 
-        // Process trip lifecycle based on scenario
         setTimeout(() => {
           this.processTripResolution(ridePayload, scenarioName);
         }, 4000);
@@ -151,7 +143,6 @@ if (cluster.isMaster) {
         
         this.activeTripUuid = null;
         
-        // Driver returns to IDLE without debt increment
         this.socket.emit('update_driver_telemetry', {
           driverPhone: this.driverPhone,
           coords: this.coords,
@@ -190,7 +181,6 @@ if (cluster.isMaster) {
 
       this.activeTripUuid = null;
 
-      // Update telemetry and suspend driver if debt limit is reached
       const nextStatus = this.cashDebt >= 6000.00 ? "OFFLINE" : "IDLE";
       this.socket.emit('update_driver_telemetry', {
         driverPhone: this.driverPhone,
@@ -202,8 +192,23 @@ if (cluster.isMaster) {
 
     executeAgentLifecycles() {
       setInterval(() => {
-        // Driver 3 remains offline unless debt is reconciled below 6000.00
-        if (!this.activeTripUuid && this.cashDebt < 6000.00) {
+        // Auto-reconciliation simulation: if driver is offline due to debt limit, settle balance
+        if (this.cashDebt >= 6000.00) {
+          process.send({
+            type: 'LOG',
+            logPayload: `🔄 [AUTO-RECONCILE] Driver ${this.driverPhone} completed cash handover to platform agent. Resetting debt balance from ${this.cashDebt.toFixed(2)} DZD to 150.00 DZD.`
+          });
+          this.cashDebt = 150.00;
+          this.socket.emit('update_driver_telemetry', {
+            driverPhone: this.driverPhone,
+            coords: this.coords,
+            cashDebt: this.cashDebt,
+            status: "IDLE"
+          });
+          return;
+        }
+
+        if (!this.activeTripUuid) {
           if (workerIndex !== 3) {
             const tripUuid = uuidv4();
             const pickupLat = this.coords.lat + (rollDice() - 0.5) * 0.015;

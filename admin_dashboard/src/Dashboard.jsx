@@ -47,9 +47,19 @@ export default function Dashboard() {
 
   const terminalEndRef = useRef(null);
 
-  // Set up socket connection to port 4001
+  // Dynamic backend URL resolution based on window location host
+  const getBackendUrl = () => {
+    if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname;
+      return `http://${hostname}:4001`;
+    }
+    return 'http://localhost:4001';
+  };
+
+  // Set up socket connection dynamically
   useEffect(() => {
-    const socket = io('http://localhost:4001');
+    const backendUrl = getBackendUrl();
+    const socket = io(backendUrl);
 
     socket.on('connect', () => {
       setIsConnected(true);
@@ -71,7 +81,6 @@ export default function Dashboard() {
       }));
     });
 
-    // Listen for parallel simulation updates
     socket.on('simulation_progress_broadcast', (progressData) => {
       setSimProgress(progressData);
     });
@@ -140,7 +149,6 @@ export default function Dashboard() {
           let nx = n.x + n.vx;
           let ny = n.y + n.vy;
 
-          // Boundary bounce
           if (nx < 40 || nx > 460) n.vx *= -1;
           if (ny < 40 || ny > 360) n.vy *= -1;
 
@@ -164,9 +172,8 @@ export default function Dashboard() {
     return () => cancelAnimationFrame(animationFrameId);
   }, []);
 
-  // Fetch status info
   const fetchStatus = () => {
-    fetch('http://localhost:4001/api/status')
+    fetch(`${getBackendUrl()}/api/status`)
       .then((res) => res.json())
       .then((data) => {
         setMetrics((prev) => ({
@@ -191,7 +198,7 @@ export default function Dashboard() {
   }, [metrics.logs]);
 
   const injectChaos = (scenario) => {
-    fetch('http://localhost:4001/api/chaos-inject', {
+    fetch(`${getBackendUrl()}/api/chaos-inject`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -204,14 +211,13 @@ export default function Dashboard() {
   };
 
   const triggerStressTest = () => {
-    fetch('http://localhost:4001/api/run-simulation', {
+    fetch(`${getBackendUrl()}/api/run-simulation`, {
       method: 'POST'
     })
       .then((res) => res.json())
       .catch((err) => console.error('Error starting stress test:', err));
   };
 
-  // Nudge nodes to demonstrate physics springiness
   const triggerNudge = () => {
     setGraphNodes(prev => prev.map(n => ({
       ...n,
@@ -374,7 +380,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* OpenStreetMap SVG Engine View */}
+          {/* OpenStreetMap SVG View */}
           <div className="glass-panel" style={{ padding: '24px', overflow: 'hidden' }}>
             <h2 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>🗺️ Dynamic OpenStreetMap Telemetry (Algiers Sector)</span>
@@ -526,7 +532,7 @@ export default function Dashboard() {
 
             <div className="glass-panel" style={{ padding: '20px' }}>
               <div style={{ fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>Active Driver Pools</div>
-              <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginTop: '8px' }}>
+              <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--color-primary)', fontFamily: 'var(--font-mono)', marginTop: '8px' }}>
                 {metrics.drivers.filter(d => d.status !== 'OFFLINE').length} Nodes
               </div>
               <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '6px' }}>Drivers online in Algiers sector.</div>
