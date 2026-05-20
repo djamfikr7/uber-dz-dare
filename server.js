@@ -2,6 +2,8 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const { Worker } = require('worker_threads');
+const path = require('path');
 
 const app = express();
 app.use(cors());
@@ -52,6 +54,72 @@ app.get('/api/status', (req, res) => {
   });
 });
 
+// Run parallel stress test simulation endpoint
+app.post('/api/run-simulation', (req, res) => {
+  const threadCount = 4;
+  const totalTransactions = 10000;
+  const limitPerThread = totalTransactions / threadCount;
+  
+  let completedThreads = 0;
+  let accumulatedProgress = 0;
+  let accumulatedEscrow = 0;
+  let accumulatedBreaches = 0;
+
+  systemLog('SIMULATION_STARTED', 'Triggered 10,000 cycle multi-threaded parallel stress test.');
+
+  io.emit('simulation_progress_broadcast', {
+    progress: 0,
+    total: totalTransactions,
+    escrow: 0,
+    breaches: 0,
+    status: 'RUNNING'
+  });
+
+  for (let i = 0; i < threadCount; i++) {
+    const worker = new Worker(path.join(__dirname, 'simulation_worker.js'), {
+      workerData: {
+        limit: limitPerThread,
+        threadId: i,
+        startDebt: 150.00
+      }
+    });
+
+    worker.on('message', (msg) => {
+      if (msg.type === 'PROGRESS') {
+        accumulatedProgress += msg.count;
+        accumulatedEscrow += msg.escrow;
+        accumulatedBreaches += msg.violations;
+
+        io.emit('simulation_progress_broadcast', {
+          progress: accumulatedProgress,
+          total: totalTransactions,
+          escrow: accumulatedEscrow,
+          breaches: accumulatedBreaches,
+          status: 'RUNNING'
+        });
+      } else if (msg.type === 'DONE') {
+        completedThreads++;
+        if (completedThreads === threadCount) {
+          systemLog('SIMULATION_COMPLETED', `Stress test finished. Escrow Collected: ${accumulatedEscrow} DZD. Breaches prevented: ${accumulatedBreaches}`);
+          io.emit('simulation_progress_broadcast', {
+            progress: totalTransactions,
+            total: totalTransactions,
+            escrow: accumulatedEscrow,
+            breaches: accumulatedBreaches,
+            status: 'COMPLETED'
+          });
+        }
+      }
+    });
+
+    worker.on('error', (err) => {
+      console.error(`Thread error: ${err.message}`);
+    });
+  }
+
+  res.json({ status: 'success' });
+});
+
 app.post('/api/chaos-inject', (req, res) => {
   const { scenario } = req.body;
   systemLog('CHAOS_INJECTED', `Injected simulation chaos scenario: ${scenario}`);
@@ -61,11 +129,6 @@ app.post('/api/chaos-inject', (req, res) => {
 
 io.on('connection', (socket) => {
   systemLog('CONNECTION', `Node connected: ${socket.id}`);
-
-  // Forward simulation progress to all connected consoles
-  socket.on('simulation_progress_update', (data) => {
-    io.emit('simulation_progress_broadcast', data);
-  });
 
   // Driver registers their offline/online state
   socket.on('register_driver_node', (meta) => {

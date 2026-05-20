@@ -203,6 +203,14 @@ export default function Dashboard() {
       .catch((err) => console.error('Error injecting chaos:', err));
   };
 
+  const triggerStressTest = () => {
+    fetch('http://localhost:4001/api/run-simulation', {
+      method: 'POST'
+    })
+      .then((res) => res.json())
+      .catch((err) => console.error('Error starting stress test:', err));
+  };
+
   // Nudge nodes to demonstrate physics springiness
   const triggerNudge = () => {
     setGraphNodes(prev => prev.map(n => ({
@@ -246,26 +254,43 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Parallel Simulation Progress Bar */}
-      {simProgress.progress > 0 && (
-        <div className="glass-panel" style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px', fontWeight: 'bold' }}>
-            <span style={{ color: 'var(--color-primary)' }}>
-              ⚡ Parallel Validation Simulation Status: {simProgress.status}
-            </span>
-            <span style={{ fontFamily: 'var(--font-mono)' }}>
-              {simProgress.progress.toLocaleString()} / {simProgress.total.toLocaleString()} Cycles ({((simProgress.progress / simProgress.total) * 100).toFixed(1)}%)
+      {/* Parallel Simulation Progress Bar Panel */}
+      <div className="glass-panel" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <h2 style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--text-primary)', margin: 0 }}>
+              ⚡ Parallel Validation Simulator (10,000 transactions)
+            </h2>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+              Status: <strong style={{ color: simProgress.status === 'RUNNING' ? 'var(--color-primary)' : simProgress.status === 'COMPLETED' ? '#00e676' : 'var(--text-muted)' }}>{simProgress.status}</strong>
             </span>
           </div>
-          <div style={{ width: '100%', height: '10px', background: '#0a0f1d', borderRadius: '5px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
-            <div style={{ width: `${(simProgress.progress / simProgress.total) * 100}%`, height: '100%', background: 'linear-gradient(90deg, #00b0ff, #00e676)', boxShadow: '0 0 10px #00e676', transition: 'width 0.1s linear' }}></div>
-          </div>
-          <div style={{ display: 'flex', gap: '24px', fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+          {simProgress.status !== 'RUNNING' ? (
+            <button id="btn-trigger-stress-test" className="btn-chaos" style={{ padding: '10px 16px', fontSize: '13px', backgroundColor: 'var(--color-primary)', color: '#000', fontWeight: 'bold', border: 'none', borderRadius: '6px', cursor: 'pointer', boxShadow: '0 0 12px rgba(0, 176, 255, 0.4)' }} onClick={triggerStressTest}>
+              🚀 Trigger 10,000 Cycle Parallel Stress Test
+            </button>
+          ) : (
+            <span style={{ fontSize: '13px', color: 'var(--color-primary)', fontWeight: 'bold', fontFamily: 'var(--font-mono)' }}>
+              PROCESSING...
+            </span>
+          )}
+        </div>
+
+        <div style={{ width: '100%', height: '12px', background: '#070a13', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-color)', marginTop: '4px' }}>
+          <div style={{ width: `${(simProgress.progress / simProgress.total) * 100}%`, height: '100%', background: 'linear-gradient(90deg, #00b0ff, #00e676)', boxShadow: '0 0 10px #00e676', transition: 'width 0.1s linear' }}></div>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+          <div style={{ display: 'flex', gap: '24px' }}>
+            <span>Progress: <strong>{simProgress.progress.toLocaleString()} / {simProgress.total.toLocaleString()} Cycles ({((simProgress.progress / simProgress.total) * 100).toFixed(1)}%)</strong></span>
             <span>Verified Escrow: <strong style={{ color: '#00e676' }}>{simProgress.escrow.toLocaleString()} DZD</strong></span>
             <span>Invariant Limit Lockouts Enforced: <strong style={{ color: 'var(--color-danger)' }}>{simProgress.breaches}</strong></span>
           </div>
+          {simProgress.status === 'COMPLETED' && (
+            <span style={{ color: '#00e676', fontWeight: 'bold' }}>✓ RULES FULLY VALIDATED</span>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Main Grid Panels */}
       <div className="grid-layout">
@@ -529,7 +554,7 @@ export default function Dashboard() {
               <button id="btn-chaos-change" className="btn-chaos" onClick={() => injectChaos('DRIVER_INSUFFICIENT_CHANGE_EXCEPTION')}>
                 💰 Cash Handover Change Exception (Insufficient Coins)
               </button>
-              <button id="btn-chaos-cancellation" className="btn-chaos" onClick={() => injectChaos('RIDER_CANCEATION_IN_TRANSIT')}>
+              <button id="btn-chaos-cancellation" className="btn-chaos" onClick={() => injectChaos('RIDER_CANCELLATION_IN_TRANSIT')}>
                 ❌ Middle-Transit Rider Cancellation
               </button>
               <button id="btn-chaos-lockout" className="btn-chaos" onClick={() => injectChaos('EXCESSIVE_CASH_DEBT_DISPATCH_LOCKOUT')}>
