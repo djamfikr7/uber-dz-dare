@@ -1,0 +1,27 @@
+name: DARE Invariant Reconciler CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  validate-system:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code Repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js Environment
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: 'npm'
+
+    - name: Install NPM Dependencies
+      run: npm install
+
+    - name: Run DARE Multi-Threaded Simulation Suite
+      run: node run_dare_engine.js

@@ -1,0 +1,17 @@
+{
+  "name": "uber_dz_backend",
+  "version": "1.0.0",
+  "description": "State Reconciliation Server and Multi-Agent Simulator for Uber DZ",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "simulator": "node simulator_orchestration.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5",
+    "socket.io-client": "^4.7.5",
+    "uuid": "^9.0.1"
+  }
+}

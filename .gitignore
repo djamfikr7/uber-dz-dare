@@ -1,0 +1,12 @@
+node_modules/
+.DS_Store
+.env
+.env.*
+.idea/
+.vscode/
+.dart_tool/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+*.g.dart
